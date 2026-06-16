@@ -1,0 +1,25 @@
+# Uploads de imágenes (no subir archivos de pacientes)
+uploads/*
+!uploads/.gitkeep
+
+# Config con credenciales reales
+config/config.php
+
+# Dependencias PHP (se regeneran con composer install)
+vendor/
+
+# Logs y caché
+*.log
+*.cache
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+
+# PHP
+*.swp

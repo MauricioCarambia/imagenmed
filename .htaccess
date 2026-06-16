@@ -1,0 +1,11 @@
+Options -Indexes
+
+# Bloquear acceso directo a directorios y archivos sensibles
+RewriteEngine On
+RewriteRule ^vendor/ - [F,L]
+RewriteRule ^config/ - [F,L]
+RewriteRule ^composer\.(json|lock)$ - [F,L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ver/([A-Z0-9]{6,8})/?$ ver/estudio.php?c=$1 [L,QSA]
