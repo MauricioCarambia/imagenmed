@@ -6,14 +6,16 @@ require_once __DIR__ . '/../config/helpers.php';
 $buscarFiltro = trim($_GET['q'] ?? '');
 $tipoFiltro   = $_GET['tipo'] ?? '';
 $estadoFiltro = $_GET['estado'] ?? '';
+$fechaDesde   = $_GET['desde'] ?? '';
+$fechaHasta   = $_GET['hasta'] ?? '';
 
 $whereFiltro = ['1=1'];
 $paramsFiltro = [];
 
 if ($buscarFiltro) {
-    $whereFiltro[] = '(p.dni LIKE ? OR p.nombre LIKE ? OR p.apellido LIKE ?)';
+    $whereFiltro[] = '(p.dni LIKE ? OR p.nombre LIKE ? OR p.apellido LIKE ? OR e.medico_der LIKE ?)';
     $likeFiltro = "%$buscarFiltro%";
-    $paramsFiltro = array_merge($paramsFiltro, [$likeFiltro, $likeFiltro, $likeFiltro]);
+    $paramsFiltro = array_merge($paramsFiltro, [$likeFiltro, $likeFiltro, $likeFiltro, $likeFiltro]);
 }
 if ($tipoFiltro && array_key_exists($tipoFiltro, TIPOS_ESTUDIO)) {
     $whereFiltro[] = 'e.tipo = ?';
@@ -22,6 +24,14 @@ if ($tipoFiltro && array_key_exists($tipoFiltro, TIPOS_ESTUDIO)) {
 if ($estadoFiltro && in_array($estadoFiltro, ['pendiente','informado','entregado'])) {
     $whereFiltro[] = 'e.estado = ?';
     $paramsFiltro[] = $estadoFiltro;
+}
+if ($fechaDesde && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaDesde)) {
+    $whereFiltro[] = 'e.fecha_estudio >= ?';
+    $paramsFiltro[] = $fechaDesde;
+}
+if ($fechaHasta && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaHasta)) {
+    $whereFiltro[] = 'e.fecha_estudio <= ?';
+    $paramsFiltro[] = $fechaHasta;
 }
 
 $whereStrFiltro = implode(' AND ', $whereFiltro);
@@ -112,11 +122,11 @@ function ordenLinkEstudios(string $col, string $label, string $sort, string $dir
 <div class="card border-0 shadow-sm">
   <div class="card-header bg-white">
     <form class="row g-2 align-items-end" method="get">
-      <div class="col-auto">
-        <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar paciente o DNI..."
+      <div class="col-sm-auto">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="Paciente, DNI o médico..."
                value="<?= e($buscar) ?>">
       </div>
-      <div class="col-auto">
+      <div class="col-sm-auto">
         <select name="tipo" class="form-select form-select-sm">
           <option value="">Todos los tipos</option>
           <?php foreach (TIPOS_ESTUDIO as $k => $lbl): ?>
@@ -124,17 +134,22 @@ function ordenLinkEstudios(string $col, string $label, string $sort, string $dir
           <?php endforeach; ?>
         </select>
       </div>
-      <div class="col-auto">
-        <select name="estado" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+      <div class="col-sm-auto">
+        <select name="estado" class="form-select form-select-sm">
           <option value="">Todos los estados</option>
           <option value="pendiente" <?= $estadoFiltro==='pendiente'?'selected':'' ?>>Pendiente</option>
           <option value="informado" <?= $estadoFiltro==='informado'?'selected':'' ?>>Informado</option>
           <option value="entregado" <?= $estadoFiltro==='entregado'?'selected':'' ?>>Entregado</option>
         </select>
       </div>
-      <div class="col-auto">
+      <div class="col-sm-auto d-flex align-items-center gap-1">
+        <input type="date" name="desde" class="form-control form-control-sm" value="<?= e($fechaDesde) ?>" title="Desde">
+        <span class="text-muted small">—</span>
+        <input type="date" name="hasta" class="form-control form-control-sm" value="<?= e($fechaHasta) ?>" title="Hasta">
+      </div>
+      <div class="col-sm-auto">
         <button class="btn btn-sm btn-outline-secondary">Filtrar</button>
-        <?php if ($buscar || $tipo || $estadoFiltro): ?>
+        <?php if ($buscar || $tipo || $estadoFiltro || $fechaDesde || $fechaHasta): ?>
           <a href="estudios.php" class="btn btn-sm btn-link text-muted">Limpiar</a>
         <?php endif; ?>
       </div>
@@ -190,13 +205,29 @@ function ordenLinkEstudios(string $col, string $label, string $sort, string $dir
     </table>
   </div>
   <?php if ($paginas > 1): ?>
-  <div class="card-footer bg-white d-flex justify-content-center">
+  <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+    <span class="text-muted small">Página <?= $pag ?> de <?= $paginas ?></span>
     <nav><ul class="pagination pagination-sm mb-0">
-      <?php for ($i = 1; $i <= $paginas; $i++): ?>
-        <li class="page-item <?= $i===$pag?'active':'' ?>">
-          <a class="page-link" href="?<?= e(http_build_query(array_merge($_GET, ['pag' => $i]))) ?>"><?= $i ?></a>
-        </li>
-      <?php endfor; ?>
+      <li class="page-item <?= $pag===1?'disabled':'' ?>">
+        <a class="page-link" href="?<?= e(http_build_query(array_merge($_GET, ['pag' => $pag-1]))) ?>">‹</a>
+      </li>
+      <?php
+      $rango = [];
+      for ($i = 1; $i <= $paginas; $i++) {
+          if ($i===1 || $i===$paginas || abs($i-$pag)<=2) $rango[] = $i;
+      }
+      $prev = null;
+      foreach ($rango as $i):
+          if ($prev !== null && $i - $prev > 1): ?>
+            <li class="page-item disabled"><span class="page-link">…</span></li>
+          <?php endif; ?>
+          <li class="page-item <?= $i===$pag?'active':'' ?>">
+            <a class="page-link" href="?<?= e(http_build_query(array_merge($_GET, ['pag' => $i]))) ?>"><?= $i ?></a>
+          </li>
+      <?php $prev = $i; endforeach; ?>
+      <li class="page-item <?= $pag===$paginas?'disabled':'' ?>">
+        <a class="page-link" href="?<?= e(http_build_query(array_merge($_GET, ['pag' => $pag+1]))) ?>">›</a>
+      </li>
     </ul></nav>
   </div>
   <?php endif; ?>

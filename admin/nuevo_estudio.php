@@ -14,6 +14,39 @@ $ok = false;
 $codigoGenerado = '';
 $emailEnviado = null;
 
+// Prefill desde turno
+$turnoId  = (int)($_GET['turno_id'] ?? 0);
+$prefill  = [];
+if ($turnoId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+    $tRow = db()->prepare('SELECT t.*, p.nombre AS pac_nombre, p.apellido AS pac_apellido,
+                                   p.dni AS pac_dni, p.fecha_nac, p.telefono, p.email,
+                                   p.obra_social, p.nro_afiliado
+                            FROM turnos t LEFT JOIN pacientes p ON p.id=t.paciente_id
+                            WHERE t.id=?');
+    $tRow->execute([$turnoId]);
+    $tRow = $tRow->fetch();
+    if ($tRow) {
+        $prefill = [
+            'apellido'     => $tRow['pac_apellido'] ?? '',
+            'nombre'       => $tRow['pac_nombre']   ?? '',
+            'dni'          => $tRow['pac_dni']       ?? '',
+            'fecha_nac'    => $tRow['fecha_nac']     ?? '',
+            'telefono'     => $tRow['telefono']      ?? '',
+            'email'        => $tRow['email']         ?? '',
+            'obra_social'  => $tRow['obra_social']   ?? '',
+            'nro_afiliado' => $tRow['nro_afiliado']  ?? '',
+            'tipo'         => $tRow['tipo'],
+            'descripcion'  => $tRow['descripcion']   ?? '',
+            'medico_der'   => $tRow['medico_der']    ?? '',
+            'fecha_estudio'=> $tRow['fecha'],
+        ];
+    }
+}
+// GET params también prefill (sin turno)
+foreach (['tipo','descripcion','medico_der','fecha_estudio'] as $k) {
+    if (!isset($prefill[$k]) && isset($_GET[$k])) $prefill[$k] = $_GET[$k];
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // --- Validar paciente ---
     $dni      = trim($_POST['dni'] ?? '');
@@ -31,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $medicoDer   = trim($_POST['medico_der'] ?? '');
     $fechaEst    = $_POST['fecha_estudio'] ?? date('Y-m-d');
     $diasVig     = (int)($_POST['dias_vigencia'] ?? DIAS_VIGENCIA);
+    $turnoId     = (int)($_POST['turno_id'] ?? 0);
 
     if (!$dni)      $errores[] = 'DNI requerido.';
     if (!$nombre)   $errores[] = 'Nombre requerido.';
@@ -93,6 +127,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->prepare(
                     'INSERT INTO informes (estudio_id,usuario_id,cuerpo) VALUES (?,?,?)'
                 )->execute([$estId, $u['id'], $informe]);
+            }
+
+            // Vincular turno si viene de agenda
+            if ($turnoId) {
+                $db->prepare('UPDATE turnos SET estado=\'realizado\', estudio_id=? WHERE id=?')
+                   ->execute([$estId, $turnoId]);
             }
 
             $db->commit();
@@ -175,6 +215,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php endif; ?>
 
 <form method="post" enctype="multipart/form-data">
+<?php if ($turnoId): ?>
+<div class="alert alert-info py-2 small mb-3">
+  <i class="bi bi-calendar-check"></i> Creando estudio desde turno agendado.
+  <a href="agenda.php" class="ms-2">← Volver a agenda</a>
+</div>
+<input type="hidden" name="turno_id" value="<?= $turnoId ?>">
+<?php endif; ?>
 <div class="row g-4">
 
   <!-- Datos del paciente -->
@@ -186,42 +233,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <div class="col-6">
             <label class="form-label small">Apellido *</label>
             <input type="text" name="apellido" class="form-control form-control-sm" required
-                   value="<?= e($_POST['apellido'] ?? '') ?>">
+                   value="<?= e($_POST['apellido'] ?? $prefill['apellido'] ?? '') ?>">
           </div>
           <div class="col-6">
             <label class="form-label small">Nombre *</label>
             <input type="text" name="nombre" class="form-control form-control-sm" required
-                   value="<?= e($_POST['nombre'] ?? '') ?>">
+                   value="<?= e($_POST['nombre'] ?? $prefill['nombre'] ?? '') ?>">
           </div>
           <div class="col-6">
             <label class="form-label small">DNI *</label>
             <input type="text" name="dni" class="form-control form-control-sm" required
-                   value="<?= e($_POST['dni'] ?? '') ?>" id="inp-dni">
+                   value="<?= e($_POST['dni'] ?? $prefill['dni'] ?? '') ?>" id="inp-dni">
           </div>
           <div class="col-6">
             <label class="form-label small">Fecha de nacimiento</label>
             <input type="date" name="fecha_nac" class="form-control form-control-sm"
-                   value="<?= e($_POST['fecha_nac'] ?? '') ?>">
+                   value="<?= e($_POST['fecha_nac'] ?? $prefill['fecha_nac'] ?? '') ?>">
           </div>
           <div class="col-6">
             <label class="form-label small">Teléfono</label>
             <input type="text" name="telefono" class="form-control form-control-sm"
-                   value="<?= e($_POST['telefono'] ?? '') ?>">
+                   value="<?= e($_POST['telefono'] ?? $prefill['telefono'] ?? '') ?>">
           </div>
           <div class="col-6">
             <label class="form-label small">Email</label>
             <input type="email" name="email" class="form-control form-control-sm"
-                   value="<?= e($_POST['email'] ?? '') ?>">
+                   value="<?= e($_POST['email'] ?? $prefill['email'] ?? '') ?>">
           </div>
           <div class="col-6">
             <label class="form-label small">Obra social</label>
             <input type="text" name="obra_social" class="form-control form-control-sm"
-                   value="<?= e($_POST['obra_social'] ?? '') ?>">
+                   value="<?= e($_POST['obra_social'] ?? $prefill['obra_social'] ?? '') ?>">
           </div>
           <div class="col-6">
             <label class="form-label small">Nº afiliado</label>
             <input type="text" name="nro_afiliado" class="form-control form-control-sm"
-                   value="<?= e($_POST['nro_afiliado'] ?? '') ?>">
+                   value="<?= e($_POST['nro_afiliado'] ?? $prefill['nro_afiliado'] ?? '') ?>">
           </div>
         </div>
       </div>
@@ -239,7 +286,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php foreach (TIPOS_ESTUDIO as $k => $label): ?>
               <div class="form-check form-check-inline">
                 <input class="form-check-input" type="radio" name="tipo" id="tipo_<?= $k ?>"
-                       value="<?= $k ?>" <?= (($_POST['tipo'] ?? 'RX') === $k) ? 'checked' : '' ?>>
+                       value="<?= $k ?>" <?= (($_POST['tipo'] ?? $prefill['tipo'] ?? 'RX') === $k) ? 'checked' : '' ?>>
                 <label class="form-check-label small" for="tipo_<?= $k ?>"><?= e($label) ?></label>
               </div>
             <?php endforeach; ?>
@@ -249,17 +296,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <label class="form-label small">Descripción / Región</label>
           <input type="text" name="descripcion" class="form-control form-control-sm"
                  placeholder="Ej: Tórax PA y lateral"
-                 value="<?= e($_POST['descripcion'] ?? '') ?>">
+                 value="<?= e($_POST['descripcion'] ?? $prefill['descripcion'] ?? '') ?>">
         </div>
         <div class="mb-2">
           <label class="form-label small">Médico derivante</label>
           <input type="text" name="medico_der" class="form-control form-control-sm"
-                 value="<?= e($_POST['medico_der'] ?? '') ?>">
+                 value="<?= e($_POST['medico_der'] ?? $prefill['medico_der'] ?? '') ?>">
         </div>
         <div class="mb-2">
           <label class="form-label small">Fecha del estudio *</label>
           <input type="date" name="fecha_estudio" class="form-control form-control-sm"
-                 value="<?= e($_POST['fecha_estudio'] ?? date('Y-m-d')) ?>" required>
+                 value="<?= e($_POST['fecha_estudio'] ?? $prefill['fecha_estudio'] ?? date('Y-m-d')) ?>" required>
         </div>
         <div class="mb-2">
           <label class="form-label small">Vigencia del link público</label>

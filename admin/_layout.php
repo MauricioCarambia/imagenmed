@@ -47,6 +47,9 @@ purgarEstudiosViejos();
     <a href="<?= BASE_URL ?>/admin/nuevo_estudio.php" class="<?= ($activePage??'')==='nuevo' ? 'active':'' ?>">
       <i class="bi bi-plus-circle"></i> Nuevo estudio
     </a>
+    <a href="<?= BASE_URL ?>/admin/agenda.php" class="<?= ($activePage??'')==='agenda' ? 'active':'' ?>">
+      <i class="bi bi-calendar-week"></i> Agenda
+    </a>
     <?php endif; ?>
     <a href="<?= BASE_URL ?>/admin/pacientes.php" class="<?= ($activePage??'')==='pacientes' ? 'active':'' ?>">
       <i class="bi bi-people"></i> Pacientes
