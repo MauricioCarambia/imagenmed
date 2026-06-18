@@ -20,6 +20,7 @@
     var currentTool = 'pan';
     var itools = null;
     var currentSrc = '';
+    var _syncPeer = null;
 
     function calibBadge(mm) {
       var b = $('badge');
@@ -79,9 +80,16 @@
       applyT(v1, v2);
     }
 
-    function zoom(f) { ts = Math.max(.3, Math.min(5, ts * f)); filtroValores(); }
+    function zoom(f) { ts = Math.max(.3, Math.min(5, ts * f)); filtroValores(); syncOut(); }
     function rot() { tr = (tr + 90) % 360; filtroValores(); }
     function inv() { ti = !ti; filtroValores(); }
+
+    function syncOut() {
+      if (_syncPeer) _syncPeer.syncFrom(ts, panX, panY);
+    }
+    function syncFrom(sTs, sPanX, sPanY) {
+      ts = sTs; panX = sPanX; panY = sPanY; filtroValores();
+    }
 
     function tool(name, btn) {
       currentTool = name;
@@ -228,6 +236,7 @@
         if (currentTool === 'pan') {
           panX += dx; panY += dy;
           filtroValores();
+          syncOut();
         } else if (currentTool === 'wl') {
           var br = $('sl-br'), ct = $('sl-ct');
           if (dcmInfo) {
@@ -259,7 +268,9 @@
       filtro: filtro,
       clearAnotaciones: clearAnotaciones,
       clearCalib: clearCalib,
-      exportPng: exportPng
+      exportPng: exportPng,
+      syncFrom: syncFrom,
+      setPeer: function (p) { _syncPeer = p; }
     };
   }
 

@@ -69,21 +69,33 @@
       checkCalibKey();
       var el = getActive();
       if (!el) return;
-      var w, h;
+      var w, h, dispW, dispH, offL, offT;
       if (el.tagName === 'IMG') {
         w = el.naturalWidth || el.width;
         h = el.naturalHeight || el.height;
+        // Fallback: si la imagen aún no cargó, usar el contenedor padre
+        if (!w || !h) {
+          var parent = overlay.parentNode;
+          if (!parent) return;
+          w = parent.offsetWidth || 800;
+          h = parent.offsetHeight || 600;
+          dispW = w; dispH = h; offL = 0; offT = 0;
+        }
       } else {
         w = el.width;
         h = el.height;
       }
       if (!w || !h) return;
+      dispW = dispW || el.offsetWidth || w;
+      dispH = dispH || el.offsetHeight || h;
+      offL  = (offL  !== undefined) ? offL  : (el.offsetLeft || 0);
+      offT  = (offT  !== undefined) ? offT  : (el.offsetTop  || 0);
       if (overlay.width !== w) overlay.width = w;
       if (overlay.height !== h) overlay.height = h;
-      overlay.style.width = el.offsetWidth + 'px';
-      overlay.style.height = el.offsetHeight + 'px';
-      overlay.style.left = el.offsetLeft + 'px';
-      overlay.style.top = el.offsetTop + 'px';
+      overlay.style.width = dispW + 'px';
+      overlay.style.height = dispH + 'px';
+      overlay.style.left = offL + 'px';
+      overlay.style.top = offT + 'px';
       overlay.style.transform = el.style.transform || '';
       redraw();
     }

@@ -2,6 +2,16 @@
 $pageTitle = 'Comparar imágenes';
 $activePage = 'comparar';
 require_once __DIR__ . '/_layout.php';
+
+// Pre-carga de paciente por pac_id
+$preloadPacId = (int)($_GET['pac_id'] ?? 0);
+$preloadQuery = '';
+if ($preloadPacId) {
+    $pq = db()->prepare('SELECT apellido, nombre FROM pacientes WHERE id=?');
+    $pq->execute([$preloadPacId]);
+    $pq = $pq->fetch();
+    if ($pq) $preloadQuery = $pq['apellido'] . ' ' . $pq['nombre'];
+}
 ?>
 
 <style>
@@ -31,14 +41,25 @@ require_once __DIR__ . '/_layout.php';
 
 <div class="card border-0 shadow-sm mb-3">
   <div class="card-body">
-    <label class="form-label small text-muted mb-1">Buscar paciente (DNI, nombre o apellido)</label>
-    <div class="d-flex gap-2 flex-wrap">
-      <input type="search" id="cmp-q" class="form-control" style="max-width:320px;" placeholder="Ej: 30123456 o Pérez">
-      <button type="button" class="btn btn-sm" style="background:var(--accent);color:#fff;" onclick="cmpBuscar()">
-        <i class="bi bi-search"></i> Buscar
-      </button>
+    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2">
+      <div class="flex-grow-1">
+        <label class="form-label small text-muted mb-1">Buscar paciente (DNI, nombre o apellido)</label>
+        <div class="d-flex gap-2 flex-wrap">
+          <input type="search" id="cmp-q" class="form-control" style="max-width:320px;" placeholder="Ej: 30123456 o Pérez">
+          <button type="button" class="btn btn-sm" style="background:var(--accent);color:#fff;" onclick="cmpBuscar()">
+            <i class="bi bi-search"></i> Buscar
+          </button>
+        </div>
+        <div id="cmp-resultado" class="form-text mt-2"></div>
+      </div>
+      <!-- Sincronización -->
+      <div class="form-check form-switch mb-1">
+        <input class="form-check-input" type="checkbox" id="sync-toggle" onchange="cmpSetSync(this.checked)">
+        <label class="form-check-label small fw-semibold" for="sync-toggle">
+          <i class="bi bi-link-45deg"></i> Sync zoom/pan
+        </label>
+      </div>
     </div>
-    <div id="cmp-resultado" class="form-text mt-2"></div>
   </div>
 </div>
 
@@ -120,6 +141,19 @@ require_once __DIR__ . '/_layout.php';
 var vpA = VisorPanel.create('-a');
 var vpB = VisorPanel.create('-b');
 var cmpEstudios = [];
+var cmpSync = false;
+
+// ── Sync zoom/pan ─────────────────────────────────────────────
+function cmpSetSync(on) {
+  cmpSync = on;
+  if (on) {
+    vpA.setPeer(vpB);
+    vpB.setPeer(vpA);
+  } else {
+    vpA.setPeer(null);
+    vpB.setPeer(null);
+  }
+}
 
 function cmpBuscar() {
   var q = document.getElementById('cmp-q').value.trim();
@@ -144,7 +178,17 @@ function cmpBuscar() {
       if (!cmpEstudios.length) {
         info.textContent = 'No se encontraron estudios con imágenes para esa búsqueda.';
       } else {
-        info.textContent = cmpEstudios.length + ' estudio(s) encontrado(s).';
+        info.textContent = cmpEstudios.length + ' estudio(s) encontrado(s). Seleccioná uno por panel.';
+        // Auto-assign first two studies if coming from historial
+        if (cmpEstudios.length >= 2) {
+          var selA = document.getElementById('cmp-estudio-a');
+          var selB = document.getElementById('cmp-estudio-b');
+          selA.value = 0; cmpCargarImagenes('a');
+          selB.value = 1; cmpCargarImagenes('b');
+        } else if (cmpEstudios.length === 1) {
+          var selA = document.getElementById('cmp-estudio-a');
+          selA.value = 0; cmpCargarImagenes('a');
+        }
       }
     })
     .catch(function () { info.textContent = 'Error al buscar.'; });
@@ -178,6 +222,15 @@ function cmpCargarImagen(sfx) {
   var vp = sfx === 'a' ? vpA : vpB;
   vp.cargar(img.url);
 }
+
+// Auto-buscar si viene con pac_id
+<?php if ($preloadQuery): ?>
+document.addEventListener('DOMContentLoaded', function () {
+  var q = document.getElementById('cmp-q');
+  q.value = <?= json_encode($preloadQuery) ?>;
+  cmpBuscar();
+});
+<?php endif; ?>
 </script>
 
 <?php require_once __DIR__ . '/_layout_end.php'; ?>

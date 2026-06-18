@@ -7,6 +7,29 @@ requireLogin();
 require_once __DIR__ . '/../config/helpers.php';
 $u = sesionUsuario();
 purgarEstudiosViejos();
+
+// ── Sesión activa: registrar/actualizar ──────────────────────
+try {
+    $sid = session_id();
+    $ip  = $_SERVER['REMOTE_ADDR'] ?? '';
+    $ua  = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 300);
+    db()->prepare('INSERT INTO sesiones_activas (usuario_id,session_id,ip,user_agent)
+                   VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE last_seen=NOW(),ip=?,user_agent=?')
+       ->execute([$u['id'], $sid, $ip, $ua, $ip, $ua]);
+    // Limpiar sesiones inactivas más de 8 horas
+    db()->exec("DELETE FROM sesiones_activas WHERE last_seen < DATE_SUB(NOW(), INTERVAL 8 HOUR)");
+} catch (Throwable) {}
+
+// ── Notificaciones ───────────────────────────────────────────
+try {
+    $nPendientes = (int)db()->query(
+        "SELECT COUNT(*) FROM estudios WHERE estado='pendiente'"
+    )->fetchColumn();
+    $nSinFirmar = (int)db()->query(
+        "SELECT COUNT(*) FROM informes WHERE firmado_en IS NULL"
+    )->fetchColumn();
+    $nTotal = $nPendientes + $nSinFirmar;
+} catch (Throwable) { $nPendientes = $nSinFirmar = $nTotal = 0; }
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -72,6 +95,9 @@ purgarEstudiosViejos();
       <i class="bi bi-shield-check"></i> Permisos
     </a>
     <?php endif; ?>
+    <a href="<?= BASE_URL ?>/admin/sesiones.php" class="<?= ($activePage??'')==='sesiones' ? 'active':'' ?>">
+      <i class="bi bi-person-check"></i> Sesiones activas
+    </a>
     <a href="<?= BASE_URL ?>/admin/auditoria.php" class="<?= ($activePage??'')==='auditoria' ? 'active':'' ?>">
       <i class="bi bi-clock-history"></i> Auditoría
     </a>
@@ -110,6 +136,33 @@ purgarEstudiosViejos();
       <input type="search" name="q" class="form-control form-control-sm" style="width:220px;"
              placeholder="Buscar por DNI, nombre o código...">
     </form>
+    <?php if ($nTotal > 0): ?>
+    <div class="dropdown">
+      <button class="btn btn-sm btn-outline-secondary position-relative" data-bs-toggle="dropdown" title="Notificaciones">
+        <i class="bi bi-bell"></i>
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:.6rem;"><?= $nTotal ?></span>
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:280px;font-size:.83rem;">
+        <li><h6 class="dropdown-header">Notificaciones</h6></li>
+        <?php if ($nPendientes > 0): ?>
+        <li>
+          <a class="dropdown-item py-2" href="<?= BASE_URL ?>/admin/estudios.php?estado=pendiente">
+            <i class="bi bi-hourglass-split text-warning me-2"></i>
+            <strong><?= $nPendientes ?></strong> estudio<?= $nPendientes!=1?'s':'' ?> pendiente<?= $nPendientes!=1?'s':'' ?> de informe
+          </a>
+        </li>
+        <?php endif; ?>
+        <?php if ($nSinFirmar > 0): ?>
+        <li>
+          <a class="dropdown-item py-2" href="<?= BASE_URL ?>/admin/estudios.php?estado=informado">
+            <i class="bi bi-pen text-primary me-2"></i>
+            <strong><?= $nSinFirmar ?></strong> informe<?= $nSinFirmar!=1?'s':'' ?> sin firmar
+          </a>
+        </li>
+        <?php endif; ?>
+      </ul>
+    </div>
+    <?php endif; ?>
     <a href="<?= BASE_URL ?>/admin/nuevo_estudio.php" class="btn btn-sm" style="background:var(--accent);color:#fff;">
       <i class="bi bi-plus-lg"></i> Nuevo estudio
     </a>
