@@ -42,6 +42,7 @@ $error = '';
 $ok    = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'editar') {
+    csrfCheck();
     $id          = (int)($_POST['id'] ?? 0);
     $nombre      = trim($_POST['nombre'] ?? '');
     $apellido    = trim($_POST['apellido'] ?? '');
@@ -54,6 +55,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'edita
 
     if ($nombre === '' || $apellido === '' || $dni === '') {
         $error = 'Nombre, apellido y DNI son obligatorios.';
+    } elseif (!preg_match('/^\d{6,9}$/', $dni)) {
+        $error = 'DNI inválido (6 a 9 dígitos, sin puntos).';
+    } elseif ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Email inválido.';
     } else {
         $existe = db()->prepare('SELECT id FROM pacientes WHERE dni = ? AND id <> ?');
         $existe->execute([$dni, $id]);
@@ -190,6 +195,7 @@ function ordenLink(string $col, string $label, string $sort, string $dir): strin
         <div class="cmodal-overlay" id="modalEditar<?= $r['id'] ?>">
           <div class="cmodal-box">
             <form method="post">
+              <?php csrfField(); ?>
               <input type="hidden" name="accion" value="editar">
               <input type="hidden" name="id" value="<?= $r['id'] ?>">
               <div class="cmodal-header">

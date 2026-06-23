@@ -15,11 +15,12 @@ $row = $stmt->fetch();
 if (!$row) {
     $error = 'El enlace de recuperación es inválido o expiró. Solicitá uno nuevo.';
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrfCheck();
     $pass  = $_POST['password'] ?? '';
     $pass2 = $_POST['password2'] ?? '';
 
-    if (strlen($pass) < 6) {
-        $error = 'La contraseña debe tener al menos 6 caracteres.';
+    if (strlen($pass) < 10) {
+        $error = 'La contraseña debe tener al menos 10 caracteres.';
     } elseif ($pass !== $pass2) {
         $error = 'Las contraseñas no coinciden.';
     } else {
@@ -71,14 +72,15 @@ if (!$row) {
         <div class="alert alert-danger"><?= e($error) ?></div>
       <?php endif; ?>
       <form method="post">
+        <?php csrfField(); ?>
         <input type="hidden" name="token" value="<?= e($token) ?>">
         <div class="form-group">
           <label class="form-label">Nueva contraseña</label>
-          <input type="password" name="password" class="form-control" minlength="6" required autofocus>
+          <input type="password" name="password" class="form-control" minlength="10" required autofocus>
         </div>
         <div class="form-group">
           <label class="form-label">Repetir contraseña</label>
-          <input type="password" name="password2" class="form-control" minlength="6" required>
+          <input type="password" name="password2" class="form-control" minlength="10" required>
         </div>
         <button type="submit" class="btn btn-primary">Guardar contraseña</button>
       </form>

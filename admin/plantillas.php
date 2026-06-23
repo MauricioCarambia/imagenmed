@@ -5,6 +5,8 @@ require_once __DIR__ . '/_layout.php';
 
 $msg = '';
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') csrfCheck();
+
 // Crear
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'crear') {
     $tipo   = $_POST['tipo'] ?? '';
@@ -47,6 +49,7 @@ $plantillas = db()->query('SELECT * FROM plantillas_informe ORDER BY tipo, nombr
       <div class="card-header bg-white fw-semibold small">Nueva plantilla</div>
       <div class="card-body">
         <form method="post" id="form-plantilla">
+          <?php csrfField(); ?>
           <input type="hidden" name="accion" value="crear" id="fp-accion">
           <input type="hidden" name="pid" value="" id="fp-pid">
           <div class="mb-2">
@@ -95,6 +98,7 @@ $plantillas = db()->query('SELECT * FROM plantillas_informe ORDER BY tipo, nombr
                 <i class="bi bi-pencil"></i>
               </button>
               <form method="post" class="d-inline" onsubmit="return confirm('¿Eliminar esta plantilla?')">
+                <?php csrfField(); ?>
                 <input type="hidden" name="accion" value="eliminar">
                 <input type="hidden" name="pid" value="<?= $p['id'] ?>">
                 <button class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size:11px;"><i class="bi bi-trash"></i></button>

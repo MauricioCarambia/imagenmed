@@ -9,10 +9,21 @@ if (!puedeHacer('ver_usuarios')) {
     exit;
 }
 
+// Gestión de usuarios (crear/editar/eliminar/roles) es exclusiva del rol admin:
+// el permiso "ver_usuarios" es asignable a otros roles solo para listar, y
+// permitir además escribir habilitaría escalar privilegios (ej. autoasignarse admin).
+$esAdmin = ($u['rol'] ?? '') === 'admin';
+
 $error = '';
 $ok    = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrfCheck();
+    if (!$esAdmin) {
+        echo '<div class="alert alert-danger">Solo un administrador puede modificar usuarios.</div>';
+        require_once __DIR__ . '/_layout_end.php';
+        exit;
+    }
     $accion = $_POST['accion'] ?? '';
 
     if ($accion === 'crear') {
@@ -25,8 +36,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($nombre === '' || $email === '' || $pass === '') {
             $error = 'Completá nombre, email y contraseña.';
-        } elseif (strlen($pass) < 6) {
-            $error = 'La contraseña debe tener al menos 6 caracteres.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = 'Email inválido.';
+        } elseif (strlen($pass) < 10) {
+            $error = 'La contraseña debe tener al menos 10 caracteres.';
         } else {
             $existe = db()->prepare('SELECT id FROM usuarios WHERE email = ?');
             $existe->execute([$email]);
@@ -55,8 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($accion === 'reset_pass') {
         $id   = (int)($_POST['id'] ?? 0);
         $pass = $_POST['password'] ?? '';
-        if (strlen($pass) < 6) {
-            $error = 'La contraseña debe tener al menos 6 caracteres.';
+        if (strlen($pass) < 10) {
+            $error = 'La contraseña debe tener al menos 10 caracteres.';
         } else {
             db()->prepare('UPDATE usuarios SET password = ? WHERE id = ?')
                 ->execute([password_hash($pass, PASSWORD_DEFAULT), $id]);
@@ -135,9 +148,11 @@ function ordenLinkUsuarios(string $col, string $label, string $sort, string $dir
 <div class="card border-0 shadow-sm mb-4">
   <div class="card-header bg-white d-flex justify-content-between align-items-center">
     <span class="fw-semibold small">Usuarios del sistema</span>
+    <?php if ($esAdmin): ?>
     <button class="btn btn-sm" style="background:var(--accent);color:#fff;" data-cmodal-open="modalCrear">
       <i class="bi bi-person-plus"></i> Nuevo usuario
     </button>
+    <?php endif; ?>
   </div>
   <div class="table-responsive">
     <table class="table table-hover mb-0 small align-middle">
@@ -166,6 +181,7 @@ function ordenLinkUsuarios(string $col, string $label, string $sort, string $dir
           </td>
           <td><?= fmtFecha(substr($row['created_at'], 0, 10)) ?></td>
           <td class="text-nowrap">
+            <?php if ($esAdmin): ?>
             <button class="btn btn-sm btn-outline-secondary py-0"
                     data-cmodal-open="modalEdit<?= $row['id'] ?>" title="Editar">
               <i class="bi bi-pencil"></i>
@@ -174,8 +190,10 @@ function ordenLinkUsuarios(string $col, string $label, string $sort, string $dir
                     data-cmodal-open="modalPass<?= $row['id'] ?>" title="Cambiar contraseña">
               <i class="bi bi-key"></i>
             </button>
-            <?php if ($row['id'] != ($u['id'] ?? 0)): ?>
+            <?php endif; ?>
+            <?php if ($esAdmin && $row['id'] != ($u['id'] ?? 0)): ?>
             <form method="post" class="d-inline">
+              <?php csrfField(); ?>
               <input type="hidden" name="accion" value="toggle">
               <input type="hidden" name="id" value="<?= $row['id'] ?>">
               <button class="btn btn-sm btn-outline-<?= $row['activo'] ? 'danger' : 'success' ?> py-0">
@@ -194,6 +212,7 @@ function ordenLinkUsuarios(string $col, string $label, string $sort, string $dir
         <div class="cmodal-overlay" id="modalEdit<?= $row['id'] ?>">
           <div class="cmodal-box">
             <form method="post">
+              <?php csrfField(); ?>
               <input type="hidden" name="accion" value="editar">
               <input type="hidden" name="id" value="<?= $row['id'] ?>">
               <div class="cmodal-header">
@@ -230,6 +249,7 @@ function ordenLinkUsuarios(string $col, string $label, string $sort, string $dir
         <div class="cmodal-overlay" id="modalPass<?= $row['id'] ?>">
           <div class="cmodal-box">
             <form method="post">
+              <?php csrfField(); ?>
               <input type="hidden" name="accion" value="reset_pass">
               <input type="hidden" name="id" value="<?= $row['id'] ?>">
               <div class="cmodal-header">
@@ -238,7 +258,7 @@ function ordenLinkUsuarios(string $col, string $label, string $sort, string $dir
               </div>
               <div class="cmodal-body">
                 <label class="form-label small">Nueva contraseña</label>
-                <input type="password" name="password" class="form-control" minlength="6" required>
+                <input type="password" name="password" class="form-control" minlength="10" required>
               </div>
               <div class="cmodal-footer">
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-cmodal-close>Cancelar</button>
@@ -253,6 +273,7 @@ function ordenLinkUsuarios(string $col, string $label, string $sort, string $dir
         <div class="cmodal-overlay" id="modalDel<?= $row['id'] ?>">
           <div class="cmodal-box" style="max-width:400px;">
             <form method="post">
+              <?php csrfField(); ?>
               <input type="hidden" name="accion" value="eliminar">
               <input type="hidden" name="id" value="<?= $row['id'] ?>">
               <div class="cmodal-header">
@@ -281,6 +302,7 @@ function ordenLinkUsuarios(string $col, string $label, string $sort, string $dir
 <div class="cmodal-overlay" id="modalCrear">
   <div class="cmodal-box">
     <form method="post">
+      <?php csrfField(); ?>
       <input type="hidden" name="accion" value="crear">
       <div class="cmodal-header">
         <h5>Nuevo usuario</h5>
@@ -307,7 +329,7 @@ function ordenLinkUsuarios(string $col, string $label, string $sort, string $dir
         </div>
         <div class="mb-3">
           <label class="form-label small">Contraseña</label>
-          <input type="password" name="password" class="form-control" minlength="6" required>
+          <input type="password" name="password" class="form-control" minlength="10" required>
         </div>
       </div>
       <div class="cmodal-footer">

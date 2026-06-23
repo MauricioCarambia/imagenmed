@@ -48,6 +48,7 @@ foreach (['tipo','descripcion','medico_der','fecha_estudio'] as $k) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrfCheck();
     // --- Validar paciente ---
     $dni      = trim($_POST['dni'] ?? '');
     $nombre   = trim($_POST['nombre'] ?? '');
@@ -67,8 +68,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $turnoId     = (int)($_POST['turno_id'] ?? 0);
 
     if (!$dni)      $errores[] = 'DNI requerido.';
+    elseif (!preg_match('/^\d{6,9}$/', $dni)) $errores[] = 'DNI inválido (6 a 9 dígitos, sin puntos).';
     if (!$nombre)   $errores[] = 'Nombre requerido.';
     if (!$apellido) $errores[] = 'Apellido requerido.';
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $errores[] = 'Email inválido.';
     if (!array_key_exists($tipo, TIPOS_ESTUDIO)) $errores[] = 'Tipo de estudio inválido.';
     if (empty($_FILES['imagenes']['name'][0])) $errores[] = 'Subí al menos una imagen.';
 
@@ -215,6 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php endif; ?>
 
 <form method="post" enctype="multipart/form-data">
+<?php csrfField(); ?>
 <?php if ($turnoId): ?>
 <div class="alert alert-info py-2 small mb-3">
   <i class="bi bi-calendar-check"></i> Creando estudio desde turno agendado.

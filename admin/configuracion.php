@@ -14,6 +14,7 @@ $ok  = false;
 $err = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'guardar') {
+    csrfCheck();
     $campos = ['nombre_centro','subtitulo_centro','direccion','ciudad','telefono','email_centro','matricula','pie_informe','dias_retencion_estudios'];
     $db = db();
     $db->beginTransaction();
@@ -34,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'guard
                     $prev = $db->prepare('SELECT valor FROM configuracion WHERE clave=?');
                     $prev->execute(['logo_filename']);
                     $prevFile = $prev->fetchColumn();
-                    if ($prevFile && is_file(__DIR__.'/../uploads/'.$prevFile)) {
+                    if ($prevFile && basename($prevFile) === $prevFile && is_file(__DIR__.'/../uploads/'.$prevFile)) {
                         @unlink(__DIR__.'/../uploads/'.$prevFile);
                     }
                     $db->prepare('INSERT INTO configuracion (clave,valor) VALUES (?,?) ON DUPLICATE KEY UPDATE valor=?')
@@ -75,6 +76,7 @@ $diasRetencion = (int)($cfg['dias_retencion_estudios'] ?? 0);
 <div class="card border-0 shadow-sm">
   <div class="card-body">
     <form method="post" enctype="multipart/form-data">
+      <?php csrfField(); ?>
       <input type="hidden" name="accion" value="guardar">
       <div class="row g-3">
         <?php foreach ($campos_form as $clave => $label): ?>

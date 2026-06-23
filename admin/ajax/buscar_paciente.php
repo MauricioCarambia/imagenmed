@@ -11,7 +11,17 @@ $stmt->execute([$dni]);
 $p = $stmt->fetch();
 
 if ($p) {
-    jsonOut(['ok' => true] + $p);
+    // Solo los campos que el formulario de nuevo estudio realmente autocompleta
+    jsonOut([
+        'ok'           => true,
+        'nombre'       => $p['nombre'],
+        'apellido'     => $p['apellido'],
+        'fecha_nac'    => $p['fecha_nac'],
+        'telefono'     => $p['telefono'],
+        'email'        => $p['email'],
+        'obra_social'  => $p['obra_social'],
+        'nro_afiliado' => $p['nro_afiliado'],
+    ]);
 } else {
     jsonOut(['ok' => false]);
 }

@@ -7,13 +7,17 @@ $q = trim($_GET['q'] ?? '');
 if ($q === '') jsonOut(['estudios' => []]);
 
 $like = '%' . $q . '%';
+// Un solo query con GROUP_CONCAT en vez de una query de imágenes por estudio (evita N+1)
 $stmt = db()->prepare(
     'SELECT e.id, e.tipo, e.descripcion, e.fecha_estudio, e.codigo_acceso,
-            p.nombre, p.apellido, p.dni
+            p.nombre, p.apellido, p.dni,
+            GROUP_CONCAT(i.id, ":", i.filename ORDER BY i.orden SEPARATOR "|") AS imgs_concat
      FROM estudios e
      JOIN pacientes p ON p.id = e.paciente_id
+     LEFT JOIN imagenes i ON i.estudio_id = e.id
      WHERE p.dni LIKE ? OR p.nombre LIKE ? OR p.apellido LIKE ?
         OR CONCAT(p.apellido, " ", p.nombre) LIKE ?
+     GROUP BY e.id
      ORDER BY e.fecha_estudio DESC, e.id DESC
      LIMIT 30'
 );
@@ -22,17 +26,16 @@ $estudios = $stmt->fetchAll();
 
 $out = [];
 foreach ($estudios as $est) {
-    $imgsStmt = db()->prepare('SELECT id, filename FROM imagenes WHERE estudio_id = ? ORDER BY orden');
-    $imgsStmt->execute([$est['id']]);
+    if (!$est['imgs_concat']) continue;
     $imgs = [];
-    foreach ($imgsStmt->fetchAll() as $img) {
+    foreach (explode('|', $est['imgs_concat']) as $par) {
+        [$imgId, $filename] = explode(':', $par, 2);
         $imgs[] = [
-            'id' => (int)$img['id'],
-            'url' => urlImagen($img['filename']),
-            'nombre' => $img['filename'],
+            'id' => (int)$imgId,
+            'url' => urlImagen($filename),
+            'nombre' => $filename,
         ];
     }
-    if (!$imgs) continue;
     $out[] = [
         'id' => (int)$est['id'],
         'paciente' => $est['apellido'] . ', ' . $est['nombre'],

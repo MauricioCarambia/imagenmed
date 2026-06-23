@@ -6,30 +6,39 @@ if (usuarioLogueado()) redir(BASE_URL . '/admin/');
 
 $enviado = false;
 $resetUrl = '';
+$error = '';
+$rlClave = 'recuperar|' . ($_SERVER['REMOTE_ADDR'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = trim($_POST['email'] ?? '');
+    csrfCheck();
+    $minBloqueo = rateLimitBloqueado($rlClave);
+    if ($minBloqueo > 0) {
+        $error = "Demasiados intentos. Probá de nuevo en {$minBloqueo} minuto" . ($minBloqueo != 1 ? 's' : '') . ".";
+    } else {
+        rateLimitRegistrarFallo($rlClave, 5, 15);
+        $email = trim($_POST['email'] ?? '');
 
-    $stmt = db()->prepare('SELECT id FROM usuarios WHERE email = ? AND activo = 1');
-    $stmt->execute([$email]);
-    $row = $stmt->fetch();
+        $stmt = db()->prepare('SELECT id FROM usuarios WHERE email = ? AND activo = 1');
+        $stmt->execute([$email]);
+        $row = $stmt->fetch();
 
-    if ($row) {
-        $token = bin2hex(random_bytes(32));
-        $expira = date('Y-m-d H:i:s', strtotime('+1 hour'));
-        db()->prepare('UPDATE usuarios SET reset_token = ?, reset_expira = ? WHERE id = ?')
-            ->execute([$token, $expira, $row['id']]);
+        if ($row) {
+            $token = bin2hex(random_bytes(32));
+            $expira = date('Y-m-d H:i:s', strtotime('+1 hour'));
+            db()->prepare('UPDATE usuarios SET reset_token = ?, reset_expira = ? WHERE id = ?')
+                ->execute([$token, $expira, $row['id']]);
 
-        $resetUrl = BASE_URL . '/admin/restablecer.php?token=' . $token;
+            $resetUrl = BASE_URL . '/admin/restablecer.php?token=' . $token;
 
-        $asunto = 'Recuperar contraseña · ImagenMed';
-        $cuerpo = "Para restablecer tu contraseña, ingresá al siguiente link (válido por 1 hora):\n\n$resetUrl";
-        $mailOk = enviarEmail($email, $asunto, $cuerpo);
-        if ($mailOk) $resetUrl = '';
+            $asunto = 'Recuperar contraseña · ImagenMed';
+            $cuerpo = "Para restablecer tu contraseña, ingresá al siguiente link (válido por 1 hora):\n\n$resetUrl";
+            $mailOk = enviarEmail($email, $asunto, $cuerpo);
+            if ($mailOk) $resetUrl = '';
+        }
+
+        // Mensaje genérico: no revelamos si el email existe o no.
+        $enviado = true;
     }
-
-    // Mensaje genérico: no revelamos si el email existe o no.
-    $enviado = true;
 }
 ?>
 <!DOCTYPE html>
@@ -63,6 +72,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <div class="card">
     <h5>Recuperar contraseña</h5>
 
+    <?php if ($error): ?>
+      <div class="alert alert-danger"><?= e($error) ?></div>
+    <?php endif; ?>
     <?php if ($enviado): ?>
       <div class="alert alert-success">
         Si el email ingresado corresponde a una cuenta activa, te enviamos las instrucciones para restablecer la contraseña.
@@ -77,6 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php else: ?>
       <p class="text-muted small">Ingresá tu email y te enviaremos un enlace para restablecer tu contraseña.</p>
       <form method="post">
+        <?php csrfField(); ?>
         <div class="form-group">
           <label class="form-label">Email</label>
           <input type="email" name="email" class="form-control" required autofocus

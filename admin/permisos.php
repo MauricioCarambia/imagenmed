@@ -37,6 +37,7 @@ $ok    = '';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrfCheck();
     $db = db();
     $db->beginTransaction();
     try {
@@ -82,6 +83,7 @@ $roleLabels = [
 <?php endif; ?>
 
 <form method="post">
+<?php csrfField(); ?>
 <div class="card border-0 shadow-sm">
   <div class="card-header bg-white d-flex justify-content-between align-items-center">
     <div>

@@ -408,9 +408,11 @@
 
     function exportPng(filename) {
       var el = getActive();
-      if (!el) return false;
       var w = overlay.width, h = overlay.height;
-      if (!w || !h) return false;
+      if (!el || !w || !h) {
+        global.alert('No se pudo exportar: la imagen todavía no terminó de cargar.');
+        return false;
+      }
 
       var base = global.document.createElement('canvas');
       base.width = w;
@@ -435,7 +437,10 @@
       }
 
       out.toBlob(function (blob) {
-        if (!blob) return;
+        if (!blob) {
+          global.alert('No se pudo generar la imagen para exportar. Probá con otro navegador.');
+          return;
+        }
         var a = global.document.createElement('a');
         var url = URL.createObjectURL(blob);
         a.href = url;

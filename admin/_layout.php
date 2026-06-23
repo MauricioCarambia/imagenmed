@@ -55,8 +55,14 @@ try {
 
 <div id="sidebar">
   <div class="brand">
-    <h2>ImagenMed</h2>
-    <small>Centro de Diagnóstico</small>
+    <?php $logoFile = getCfg('logo_filename', ''); ?>
+    <?php if ($logoFile): ?>
+      <img src="<?= BASE_URL ?>/uploads/<?= e($logoFile) ?>" alt="Logo" class="brand-logo" width="100" height="100">
+    <?php endif; ?>
+    <div>
+      <h2>ImagenMed</h2>
+      <small>Centro de Diagnóstico</small>
+    </div>
   </div>
   <nav>
     <div class="nav-section">Principal</div>
