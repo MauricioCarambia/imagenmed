@@ -1,5 +1,8 @@
 /* Service Worker — ImagenMed public portal */
-var CACHE_NAME = 'imagenmed-v1';
+/* Importante: subir este número cada vez que se modifique algún archivo en
+   STATIC_ASSETS, para que los clientes con caché vieja reciban la versión
+   nueva (el handler 'activate' ya purga las cachés con nombre distinto). */
+var CACHE_NAME = 'imagenmed-v2';
 var STATIC_ASSETS = [
   'daikon.min.js',
   'dicom-viewer.js',

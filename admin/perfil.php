@@ -7,6 +7,7 @@ $error = '';
 $ok    = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrfCheck(true);
     $accion = $_POST['accion'] ?? '';
 
     if ($accion === 'datos') {
@@ -59,8 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!password_verify($actual, $hash)) {
             $error = 'La contraseña actual es incorrecta.';
-        } elseif (strlen($nueva) < 6) {
-            $error = 'La nueva contraseña debe tener al menos 6 caracteres.';
+        } elseif (strlen($nueva) < 10) {
+            $error = 'La nueva contraseña debe tener al menos 10 caracteres.';
         } elseif ($nueva !== $nueva2) {
             $error = 'Las contraseñas nuevas no coinciden.';
         } else {
@@ -90,6 +91,7 @@ $miUsuario = $stmt->fetch();
       <div class="card-header bg-white fw-semibold small">Mis datos</div>
       <div class="card-body">
         <form method="post">
+          <?php csrfField(); ?>
           <input type="hidden" name="accion" value="datos">
           <div class="mb-3">
             <label class="form-label small">Nombre</label>
@@ -116,6 +118,7 @@ $miUsuario = $stmt->fetch();
       <div class="card-header bg-white fw-semibold small">Cambiar contraseña</div>
       <div class="card-body">
         <form method="post">
+          <?php csrfField(); ?>
           <input type="hidden" name="accion" value="password">
           <div class="mb-3">
             <label class="form-label small">Contraseña actual</label>
@@ -123,11 +126,11 @@ $miUsuario = $stmt->fetch();
           </div>
           <div class="mb-3">
             <label class="form-label small">Nueva contraseña</label>
-            <input type="password" name="nueva" class="form-control form-control-sm" minlength="6" required>
+            <input type="password" name="nueva" class="form-control form-control-sm" minlength="10" required>
           </div>
           <div class="mb-3">
             <label class="form-label small">Repetir nueva contraseña</label>
-            <input type="password" name="nueva2" class="form-control form-control-sm" minlength="6" required>
+            <input type="password" name="nueva2" class="form-control form-control-sm" minlength="10" required>
           </div>
           <button class="btn btn-sm" style="background:var(--accent);color:#fff;">Cambiar contraseña</button>
         </form>
@@ -180,6 +183,7 @@ $miUsuario = $stmt->fetch();
 </div>
 
 <script>
+var CSRF_TOKEN = '<?= csrfToken() ?>';
 (function() {
   var canvas = document.getElementById('firma-canvas');
   var ctx = canvas.getContext('2d');
@@ -224,7 +228,7 @@ $miUsuario = $stmt->fetch();
     fetch('perfil.php', {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: 'accion=guardar_firma&firma_img=' + encodeURIComponent(dataUrl)
+      body: 'accion=guardar_firma&firma_img=' + encodeURIComponent(dataUrl) + '&csrf_token=' + encodeURIComponent(CSRF_TOKEN)
     }).then(function(r){ return r.json(); }).then(function(d){
       var msg = document.getElementById('firma-msg');
       msg.classList.remove('d-none','text-success','text-danger');
@@ -245,7 +249,7 @@ $miUsuario = $stmt->fetch();
     fetch('perfil.php', {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: 'accion=borrar_firma'
+      body: 'accion=borrar_firma&csrf_token=' + encodeURIComponent(CSRF_TOKEN)
     }).then(function(r){ return r.json(); }).then(function(){ location.reload(); });
   };
 })();

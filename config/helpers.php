@@ -41,11 +41,17 @@ function subirImagen(array $file): string|false {
         }
         if (!$valido) return false;
     } else {
-        // Verificar que el contenido sea realmente una imagen
+        // Verificar que el contenido sea realmente una imagen (doble check:
+        // getimagesize() puede ser spoofeado, finfo lee la firma real del archivo)
         $info = @getimagesize($file['tmp_name']);
         if ($info === false) return false;
         $mimesPermitidos = ['image/jpeg', 'image/png', 'image/gif'];
         if (!in_array($info['mime'], $mimesPermitidos, true)) return false;
+
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeReal = $finfo ? finfo_file($finfo, $file['tmp_name']) : false;
+        if ($finfo) finfo_close($finfo);
+        if ($mimeReal === false || !in_array($mimeReal, $mimesPermitidos, true)) return false;
     }
 
     if (!is_dir(UPLOAD_DIR)) {
@@ -90,11 +96,50 @@ function labelTipo(string $tipo): string {
 }
 
 /**
- * Redirige y corta ejecución.
+ * Redirige y corta ejecución. Solo permite rutas internas (relativas o que
+ * empiecen con BASE_URL) para evitar open-redirect si $url viniera de input.
  */
 function redir(string $url): never {
+    if ($url !== '' && $url[0] !== '/' && stripos($url, BASE_URL) !== 0) {
+        $url = BASE_URL . '/admin/';
+    }
     header('Location: ' . $url);
     exit;
+}
+
+/**
+ * Token CSRF de la sesión actual (lo genera una sola vez por sesión).
+ */
+function csrfToken(): string {
+    iniciarSesionSegura();
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+/**
+ * Imprime el <input hidden> con el token CSRF para incluir en un <form>.
+ */
+function csrfField(): void {
+    echo '<input type="hidden" name="csrf_token" value="' . e(csrfToken()) . '">';
+}
+
+/**
+ * Verifica el token CSRF recibido en $_POST. Si falla, corta la ejecución
+ * con un error 403 (texto plano o JSON según $json).
+ */
+function csrfCheck(bool $json = false): void {
+    iniciarSesionSegura();
+    $recibido = $_POST['csrf_token'] ?? '';
+    $esperado = $_SESSION['csrf_token'] ?? '';
+    if ($esperado === '' || !hash_equals($esperado, $recibido)) {
+        if ($json) {
+            jsonOut(['ok' => false, 'msg' => 'Token de seguridad inválido. Recargá la página e intentá de nuevo.'], 403);
+        }
+        http_response_code(403);
+        die('Token de seguridad inválido. Volvé atrás, recargá la página e intentá de nuevo.');
+    }
 }
 
 /**
@@ -124,7 +169,7 @@ function registrarAuditoria(string $accion, string $entidad, ?int $entidadId = n
  */
 function jsonOut(array $data, int $status = 200): never {
     http_response_code($status);
-    header('Content-Type: application/json');
+    header('Content-Type: application/json; charset=UTF-8');
     echo json_encode($data);
     exit;
 }

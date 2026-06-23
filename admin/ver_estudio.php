@@ -5,6 +5,11 @@ requireLogin();
 require_once __DIR__ . '/../config/helpers.php';
 $u = sesionUsuario();
 
+if (!puedeHacer('ver_estudios')) {
+    http_response_code(403);
+    die('No tenés permiso para ver estudios.');
+}
+
 $id = (int)($_GET['id'] ?? 0);
 
 // Cargar datos del estudio (necesarios por handlers POST y por la vista)
@@ -41,6 +46,7 @@ if (($_GET['accion'] ?? '') === 'cargar_anotaciones') {
 
 // Handlers POST AJAX — antes del layout para evitar que HTML contamine la respuesta JSON
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrfCheck(true);
     $accionPost = $_POST['accion'] ?? '';
 
     if ($accionPost === 'guardar_anotaciones') {
@@ -155,6 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'agreg
 
 // Eliminar imagen individual
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'eliminar_imagen') {
+    if (!puedeHacer('subir_imagenes')) { redir('ver_estudio.php?id='.$id); }
     $imgId = (int)($_POST['img_id'] ?? 0);
     $imgStmt = db()->prepare('SELECT filename FROM imagenes WHERE id=? AND estudio_id=?');
     $imgStmt->execute([$imgId, $id]);
@@ -355,6 +362,7 @@ if (!$est) {
               <?php foreach ($estadoLabels as $val => $lbl): ?>
               <li>
                 <form method="post">
+                  <?php csrfField(); ?>
                   <input type="hidden" name="accion" value="cambiar_estado">
                   <input type="hidden" name="estado" value="<?= $val ?>">
                   <button type="submit" class="dropdown-item <?= $val===$estadoActual?'fw-semibold':'' ?>"><?= $lbl ?></button>
@@ -475,6 +483,7 @@ if (!$est) {
               </div>
               <form method="post" onsubmit="return confirm('¿Eliminar esta imagen?');"
                     style="position:absolute;top:-6px;right:-6px;">
+                <?php csrfField(); ?>
                 <input type="hidden" name="accion" value="eliminar_imagen">
                 <input type="hidden" name="img_id" value="<?= $img['id'] ?>">
                 <button type="submit" class="btn btn-sm btn-danger rounded-circle"
@@ -570,6 +579,7 @@ if (!$est) {
 <div class="cmodal-overlay" id="modalEditarEstudio">
   <div class="cmodal-box">
     <form method="post">
+      <?php csrfField(); ?>
       <input type="hidden" name="accion" value="editar_estudio">
       <div class="cmodal-header">
         <h5>Editar estudio</h5>
@@ -624,6 +634,7 @@ if (!$est) {
 <div class="cmodal-overlay" id="modalAgregarImg">
   <div class="cmodal-box">
     <form method="post" enctype="multipart/form-data">
+      <?php csrfField(); ?>
       <input type="hidden" name="accion" value="agregar_imagenes">
       <div class="cmodal-header">
         <h5>Agregar imágenes</h5>
@@ -646,6 +657,7 @@ if (!$est) {
 <div class="cmodal-overlay" id="modalEliminarEstudio">
   <div class="cmodal-box">
     <form method="post">
+      <?php csrfField(); ?>
       <input type="hidden" name="accion" value="eliminar_estudio">
       <div class="cmodal-header">
         <h5>Eliminar estudio</h5>
@@ -706,12 +718,14 @@ if (!$est) {
 <?php
 $baseUrl = BASE_URL;
 $canEscribir = puedeHacer('escribir_informe') ? 'true' : 'false';
+$csrfTok = csrfToken();
 $extraJs = <<<JS
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>if (typeof window.require === 'undefined') window.require = function () {};</script>
 <script src="{$baseUrl}/assets/js/daikon.min.js"></script>
 <script src="{$baseUrl}/assets/js/dicom-viewer.js"></script>
 <script src="{$baseUrl}/assets/js/image-tools.js"></script>
+<script>var CSRF_TOKEN = '{$csrfTok}';</script>
 <script>
 new QRCode(document.getElementById('qr-admin'), {
   text: '{$urlPublica}', width: 120, height: 120
@@ -981,7 +995,7 @@ if (vPanBtn) { vPanBtn.style.background = '#5b8def'; vPanBtn.style.color = '#fff
       fetch('?id={$id}', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: 'accion=guardar_anotaciones&filename=' + encodeURIComponent(filename) + '&data=' + encodeURIComponent(JSON.stringify(shapes))
+        body: 'accion=guardar_anotaciones&filename=' + encodeURIComponent(filename) + '&data=' + encodeURIComponent(JSON.stringify(shapes)) + '&csrf_token=' + encodeURIComponent(CSRF_TOKEN)
       });
     },
     onWheel: function(dir){
@@ -1134,7 +1148,7 @@ function guardarInforme(silencioso) {
   fetch('?id={$id}', {
     method: 'POST',
     headers: {'Content-Type':'application/x-www-form-urlencoded'},
-    body: 'informe=' + encodeURIComponent(txt)
+    body: 'informe=' + encodeURIComponent(txt) + '&csrf_token=' + encodeURIComponent(CSRF_TOKEN)
   }).then(function(r){ return r.json(); }).then(function(d){
     if (d.ok) {
       infSetMsg('✓ Guardado', '#22c55e');
@@ -1182,7 +1196,7 @@ function vCompartir() {
   var desc  = document.getElementById('cmp-desc').value;
   fetch('?id={$id}', {
     method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: 'accion=compartir_estudio&horas=' + horas + '&descripcion=' + encodeURIComponent(desc)
+    body: 'accion=compartir_estudio&horas=' + horas + '&descripcion=' + encodeURIComponent(desc) + '&csrf_token=' + encodeURIComponent(CSRF_TOKEN)
   }).then(function(r){ return r.json(); }).then(function(d){
     if (!d.ok) { alert(d.msg || 'Error'); return; }
     document.getElementById('cmp-result').classList.remove('d-none');
@@ -1197,12 +1211,12 @@ function vFirmarInforme() {
   // Primero guardar, luego firmar
   fetch('?id={$id}', {
     method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: 'informe=' + encodeURIComponent(cuerpo)
+    body: 'informe=' + encodeURIComponent(cuerpo) + '&csrf_token=' + encodeURIComponent(CSRF_TOKEN)
   }).then(function(r){ return r.json(); }).then(function(saved){
     if (!saved.ok) { alert('Error al guardar el informe antes de firmar.'); return Promise.reject('save_failed'); }
     return fetch('?id={$id}', {
       method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: 'accion=firmar_informe'
+      body: 'accion=firmar_informe&csrf_token=' + encodeURIComponent(CSRF_TOKEN)
     });
   }).then(function(r){ return r.json(); }).then(function(d){
     if (!d.ok) { alert(d.msg || 'Error'); return; }

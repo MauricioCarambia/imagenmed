@@ -22,12 +22,13 @@ if (!$est || ($est['vence_en'] && $est['vence_en'] < date('Y-m-d'))) {
 
 $infStmt = db()->prepare('SELECT i.cuerpo, i.firmado_en, i.hash_contenido,
                                   u.nombre AS medico_nombre, u.firma_img AS medico_firma
-                           FROM informes i LEFT JOIN usuarios u ON u.id=i.usuario_id
+                           FROM informes i LEFT JOIN usuarios u ON u.id=i.firmado_por
                            WHERE i.estudio_id=?');
 $infStmt->execute([$est['id']]);
 $inf = $infStmt->fetch();
 
-if (!$inf || !$inf['cuerpo']) {
+// Solo accesible si el médico ya firmó el informe (no mientras está en borrador/autoguardado)
+if (!$inf || !$inf['cuerpo'] || !$inf['firmado_en']) {
     die('<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Sin informe</title></head><body style="font-family:sans-serif;padding:40px;text-align:center"><h2>El informe aún no está disponible.</h2><a href="' . BASE_URL . '/ver/' . e($codigo) . '" style="color:#5b8def">Volver al estudio</a></body></html>');
 }
 

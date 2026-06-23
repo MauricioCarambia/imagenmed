@@ -6,6 +6,7 @@ if (usuarioLogueado()) redir(BASE_URL . '/admin/');
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrfCheck();
     $email = trim($_POST['email'] ?? '');
     $pass  = $_POST['password'] ?? '';
 
@@ -58,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="alert alert-success">Cuenta creada correctamente. Ya podés iniciar sesión.</div>
     <?php endif; ?>
     <form method="post">
+      <?php csrfField(); ?>
       <div class="form-group">
         <label class="form-label">Email</label>
         <input type="email" name="email" class="form-control" required autofocus

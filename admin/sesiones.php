@@ -11,6 +11,7 @@ if (($u['rol'] ?? '') !== 'admin') {
 
 $ok = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrfCheck();
     $accion = $_POST['accion'] ?? '';
     $sid    = $_POST['session_id'] ?? '';
 
@@ -60,6 +61,7 @@ $miSid = session_id();
     <span class="fw-semibold small">Sesiones activas — últimas 8 horas</span>
     <?php if (count($sesiones) > 1): ?>
     <form method="post" onsubmit="return confirm('¿Cerrar todas las demás sesiones?')">
+      <?php csrfField(); ?>
       <input type="hidden" name="accion" value="cerrar_todas">
       <button class="btn btn-sm btn-outline-danger py-0">
         <i class="bi bi-x-circle"></i> Cerrar todas las demás
@@ -111,6 +113,7 @@ $miSid = session_id();
           <td>
             <?php if ($s['session_id'] !== $miSid): ?>
             <form method="post" onsubmit="return confirm('¿Cerrar esta sesión?')">
+              <?php csrfField(); ?>
               <input type="hidden" name="accion" value="cerrar">
               <input type="hidden" name="session_id" value="<?= e($s['session_id']) ?>">
               <button class="btn btn-sm btn-outline-danger py-0">

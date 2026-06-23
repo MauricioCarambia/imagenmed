@@ -39,7 +39,7 @@ if (!$notFound) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= $notFound ? 'Estudio no disponible' : e($row['apellido'].', '.$row['nombre'].' · '.labelTipo($row['tipo'])) ?> · ImagenMed</title>
+<title><?= $notFound ? 'Estudio no disponible' : e('Estudio · '.labelTipo($row['tipo'])) ?> · ImagenMed</title>
 <link rel="icon" type="image/svg+xml" href="<?= BASE_URL ?>/assets/img/favicon.svg">
 <meta name="robots" content="noindex, nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -220,7 +220,7 @@ body { background: #f7f7f8; font-family: 'Inter', system-ui, -apple-system, "Seg
           <?php if (strtolower(pathinfo($img['filename'], PATHINFO_EXTENSION)) === 'dcm'): ?>
             <div class="dcm-thumb"><i class="bi bi-file-medical fs-5 d-block"></i>DCM</div>
           <?php else: ?>
-            <img src="<?= e(urlImagen($img['filename'])) ?>" alt="Imagen <?= $i+1 ?>">
+            <img src="<?= e(urlImagen($img['filename'])) ?>" alt="Imagen <?= $i+1 ?>" loading="lazy">
           <?php endif; ?>
         </div>
       <?php endforeach; ?>

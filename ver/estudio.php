@@ -2,6 +2,7 @@
 // ver/index.php enruta acá, o se llama directamente via .htaccess
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/helpers.php';
 
 // Obtener código desde URL segment o GET
@@ -11,26 +12,38 @@ $codigo = strtoupper(preg_replace('/[^A-Z0-9]/', '', $seg ?: ($_GET['c'] ?? ''))
 
 if (!$codigo) redir(BASE_URL . '/ver/');
 
-// Buscar estudio
-$stmt = db()->prepare(
-    'SELECT e.*, p.nombre, p.apellido, p.dni, p.fecha_nac, p.obra_social
-     FROM estudios e
-     JOIN pacientes p ON p.id = e.paciente_id
-     WHERE e.codigo_acceso = ? AND e.activo = 1'
-);
-$stmt->execute([$codigo]);
-$est = $stmt->fetch();
+// Rate limiting contra fuerza bruta de códigos de acceso (por IP)
+$ip      = $_SERVER['REMOTE_ADDR'] ?? '';
+$rlClave = 'pub_codigo|' . $ip;
+$rlEspera = rateLimitBloqueado($rlClave);
 
-if (!$est) {
+if ($rlEspera > 0) {
     $notFound = true;
+    $bloqueadoRate = true;
 } else {
-    if ($est['vence_en'] && $est['vence_en'] < date('Y-m-d')) {
-        $notFound = true; $vencido = true;
+    // Buscar estudio
+    $stmt = db()->prepare(
+        'SELECT e.*, p.nombre, p.apellido, p.dni, p.fecha_nac, p.obra_social
+         FROM estudios e
+         JOIN pacientes p ON p.id = e.paciente_id
+         WHERE e.codigo_acceso = ? AND e.activo = 1'
+    );
+    $stmt->execute([$codigo]);
+    $est = $stmt->fetch();
+
+    if (!$est) {
+        $notFound = true;
+        rateLimitRegistrarFallo($rlClave);
+    } else {
+        if ($est['vence_en'] && $est['vence_en'] < date('Y-m-d')) {
+            $notFound = true; $vencido = true;
+        } else {
+            rateLimitRegistrarExito($rlClave);
+        }
     }
 }
 
 if (empty($notFound)) {
-    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
     $ua = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 300);
     db()->prepare('INSERT INTO accesos_log (estudio_id,ip,user_agent) VALUES (?,?,?)')
        ->execute([$est['id'], $ip, $ua]);
@@ -39,9 +52,11 @@ if (empty($notFound)) {
     $imgs->execute([$est['id']]);
     $imgs = $imgs->fetchAll();
 
-    $infStmt = db()->prepare('SELECT cuerpo FROM informes WHERE estudio_id=?');
+    $infStmt = db()->prepare('SELECT cuerpo, firmado_en FROM informes WHERE estudio_id=?');
     $infStmt->execute([$est['id']]);
-    $informe = $infStmt->fetchColumn();
+    $infRow = $infStmt->fetch();
+    // Solo mostrar el informe al paciente si el médico ya lo firmó (no mientras está en borrador)
+    $informe = ($infRow && $infRow['firmado_en']) ? $infRow['cuerpo'] : null;
 }
 ?>
 <!DOCTYPE html>
@@ -49,7 +64,7 @@ if (empty($notFound)) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= empty($notFound) ? e($est['apellido'].', '.$est['nombre'].' · '.labelTipo($est['tipo'])) : 'Estudio no encontrado' ?> · ImagenMed</title>
+<title><?= empty($notFound) ? e('Estudio · '.labelTipo($est['tipo'])) : 'Estudio no encontrado' ?> · ImagenMed</title>
 <link rel="icon" type="image/svg+xml" href="<?= BASE_URL ?>/assets/img/favicon.svg">
 <link rel="manifest" href="<?= BASE_URL ?>/ver/manifest.php">
 <meta name="theme-color" content="#16181d">
@@ -161,10 +176,10 @@ body { background: #f7f7f8; font-family: 'Inter', system-ui, -apple-system, "Seg
   <div class="section-card text-center py-5">
     <div style="font-size:2.5rem;margin-bottom:1rem;">🔍</div>
     <h2 style="font-size:1.1rem;color:var(--brand);text-transform:none;letter-spacing:0;">
-      <?= !empty($vencido) ? 'El link de este estudio ha vencido' : 'Código no encontrado' ?>
+      <?= !empty($bloqueadoRate) ? 'Demasiados intentos' : (!empty($vencido) ? 'El link de este estudio ha vencido' : 'Código no encontrado') ?>
     </h2>
     <p class="text-muted small mt-2">
-      <?= !empty($vencido) ? 'Solicitá al centro una nueva versión del link.' : 'Verificá el código en tu comprobante de entrega.' ?>
+      <?= !empty($bloqueadoRate) ? 'Probá de nuevo en unos minutos.' : (!empty($vencido) ? 'Solicitá al centro una nueva versión del link.' : 'Verificá el código en tu comprobante de entrega.') ?>
     </p>
     <a href="<?= BASE_URL ?>/ver/" class="btn mt-3" style="background:var(--accent);color:#fff;">Reintentar</a>
   </div>
@@ -314,7 +329,7 @@ body { background: #f7f7f8; font-family: 'Inter', system-ui, -apple-system, "Seg
             <?php if ($isDcm): ?>
               <div class="dcm-thumb"><i class="bi bi-file-medical fs-5 d-block"></i>DCM</div>
             <?php else: ?>
-              <img src="<?= $url ?>" alt="Imagen <?= $i+1 ?>">
+              <img src="<?= $url ?>" alt="Imagen <?= $i+1 ?>" loading="lazy">
             <?php endif; ?>
             <span class="thumb-num"><?= $i+1 ?></span>
           </div>

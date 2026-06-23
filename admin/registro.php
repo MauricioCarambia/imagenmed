@@ -9,6 +9,7 @@ $nombre = trim($_POST['nombre'] ?? '');
 $email  = trim($_POST['email'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrfCheck();
     $pass    = $_POST['password'] ?? '';
     $pass2   = $_POST['password2'] ?? '';
 
@@ -24,8 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Completá todos los campos.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'El email no es válido.';
-    } elseif (strlen($pass) < 6) {
-        $error = 'La contraseña debe tener al menos 6 caracteres.';
+    } elseif (strlen($pass) < 10) {
+        $error = 'La contraseña debe tener al menos 10 caracteres.';
     } elseif ($pass !== $pass2) {
         $error = 'Las contraseñas no coinciden.';
     } else {
@@ -75,6 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="alert alert-danger"><?= e($error) ?></div>
     <?php endif; ?>
     <form method="post">
+      <?php csrfField(); ?>
       <input type="hidden" name="form_ts" value="<?= time() ?>">
       <div style="position:absolute;left:-9999px;" aria-hidden="true">
         <label for="sitio_web">Dejar vacío</label>
@@ -92,11 +94,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </div>
       <div class="form-group">
         <label class="form-label">Contraseña</label>
-        <input type="password" name="password" class="form-control" minlength="6" required>
+        <input type="password" name="password" class="form-control" minlength="10" required>
       </div>
       <div class="form-group">
         <label class="form-label">Repetir contraseña</label>
-        <input type="password" name="password2" class="form-control" minlength="6" required>
+        <input type="password" name="password2" class="form-control" minlength="10" required>
       </div>
       <button type="submit" class="btn btn-primary">Crear cuenta</button>
       <a href="<?= BASE_URL ?>/admin/login.php" class="btn btn-link-secondary">Ya tengo cuenta</a>

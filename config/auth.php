@@ -6,6 +6,14 @@ require_once __DIR__ . '/db.php';
 
 function iniciarSesionSegura(): void {
     if (session_status() === PHP_SESSION_NONE) {
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path'     => '/',
+            'domain'   => '',
+            'secure'   => !empty($_SERVER['HTTPS']) || !empty($_SERVER['HTTP_X_FORWARDED_PROTO']),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
         session_start();
     }
 }
@@ -81,6 +89,44 @@ function login(string $email, string $pass): bool {
         return true;
     }
     return false;
+}
+
+// ============================================================
+//  Rate limiting genérico (reutiliza la tabla login_intentos)
+//  Pensado para proteger endpoints públicos sin login, como la
+//  búsqueda de código de acceso en ver/index.php y ver/estudio.php.
+// ============================================================
+const RATE_LIMIT_MAX_INTENTOS = 8;
+const RATE_LIMIT_BLOQUEO_MIN  = 15;
+
+function rateLimitBloqueado(string $clave): int {
+    $stmt = db()->prepare('SELECT bloqueado_hasta FROM login_intentos WHERE identificador = ?');
+    $stmt->execute([$clave]);
+    $hasta = $stmt->fetchColumn();
+    if ($hasta && strtotime($hasta) > time()) {
+        return (int)ceil((strtotime($hasta) - time()) / 60);
+    }
+    return 0;
+}
+
+function rateLimitRegistrarFallo(string $clave, int $max = RATE_LIMIT_MAX_INTENTOS, int $bloqueoMin = RATE_LIMIT_BLOQUEO_MIN): void {
+    $stmt = db()->prepare('SELECT intentos FROM login_intentos WHERE identificador = ?');
+    $stmt->execute([$clave]);
+    $intentos = (int)$stmt->fetchColumn() + 1;
+
+    $bloqueadoHasta = null;
+    if ($intentos >= $max) {
+        $bloqueadoHasta = date('Y-m-d H:i:s', strtotime('+' . $bloqueoMin . ' minutes'));
+    }
+
+    db()->prepare(
+        'INSERT INTO login_intentos (identificador, intentos, bloqueado_hasta) VALUES (?,?,?)
+         ON DUPLICATE KEY UPDATE intentos = ?, bloqueado_hasta = ?'
+    )->execute([$clave, $intentos, $bloqueadoHasta, $intentos, $bloqueadoHasta]);
+}
+
+function rateLimitRegistrarExito(string $clave): void {
+    db()->prepare('DELETE FROM login_intentos WHERE identificador = ?')->execute([$clave]);
 }
 
 function logout(): void {

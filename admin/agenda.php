@@ -14,6 +14,7 @@ $error = '';
 
 // ── POST handlers ────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrfCheck();
     $accion = $_POST['accion'] ?? '';
 
     if ($accion === 'crear' && puedeHacer('crear_estudio')) {
@@ -220,6 +221,7 @@ $fechaSiguiente = date('Y-m-d', strtotime($filtroFecha . ' +1 day'));
           <td><?= e($t['medico_der']) ?></td>
           <td>
             <form method="post" class="d-inline">
+              <?php csrfField(); ?>
               <input type="hidden" name="accion" value="estado">
               <input type="hidden" name="turno_id" value="<?= $t['id'] ?>">
               <input type="hidden" name="fecha" value="<?= e($filtroFecha) ?>">
@@ -257,6 +259,7 @@ $fechaSiguiente = date('Y-m-d', strtotime($filtroFecha . ' +1 day'));
             <?php endif; ?>
             <?php if (($u['rol'] ?? '') === 'admin'): ?>
             <form method="post" class="d-inline" onsubmit="return confirm('¿Eliminar este turno?')">
+              <?php csrfField(); ?>
               <input type="hidden" name="accion" value="eliminar">
               <input type="hidden" name="turno_id" value="<?= $t['id'] ?>">
               <input type="hidden" name="fecha" value="<?= e($filtroFecha) ?>">
@@ -276,6 +279,7 @@ $fechaSiguiente = date('Y-m-d', strtotime($filtroFecha . ' +1 day'));
 <div class="cmodal-overlay" id="modalNuevoTurno">
   <div class="cmodal-box" style="max-width:520px;">
     <form method="post">
+      <?php csrfField(); ?>
       <input type="hidden" name="accion" value="crear">
       <input type="hidden" name="fecha_nav" value="<?= e($filtroFecha) ?>">
       <div class="cmodal-header">

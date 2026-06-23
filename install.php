@@ -278,7 +278,7 @@ define('TIPOS_ESTUDIO', [
 
 define('EXT_PERMITIDAS', ['jpg','jpeg','png','gif','dcm']);
 define('MAX_FILE_SIZE', 20 * 1024 * 1024);
-define('DIAS_VIGENCIA', 0);
+define('DIAS_VIGENCIA', 7);
 
 date_default_timezone_set('America/Argentina/Buenos_Aires');
 define('FORCE_HTTPS', {$_POST['force_https']});

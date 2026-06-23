@@ -4,10 +4,12 @@
 //  Copiá este archivo a config.php y completá con tus datos
 // ============================================================
 
-define('DB_HOST',    'localhost');
-define('DB_NAME',    'imagenmed');
-define('DB_USER',    'root');
-define('DB_PASS',    '');
+// En producción, definí estas credenciales como variables de entorno del
+// servidor en vez de hardcodearlas acá.
+define('DB_HOST',    getenv('DB_HOST') ?: 'localhost');
+define('DB_NAME',    getenv('DB_NAME') ?: 'imagenmed');
+define('DB_USER',    getenv('DB_USER') ?: 'root');
+define('DB_PASS',    getenv('DB_PASS') ?: '');
 define('DB_CHARSET', 'utf8mb4');
 
 // URL base del sistema (sin barra final)
@@ -32,8 +34,8 @@ define('EXT_PERMITIDAS', ['jpg','jpeg','png','gif','dcm']);
 // Tamaño máximo por archivo (bytes) — 20 MB
 define('MAX_FILE_SIZE', 20 * 1024 * 1024);
 
-// Días de vigencia del link público (0 = sin vencimiento)
-define('DIAS_VIGENCIA', 0);
+// Días de vigencia por defecto del link público (0 = sin vencimiento)
+define('DIAS_VIGENCIA', 7);
 
 // Timezone
 date_default_timezone_set('America/Argentina/Buenos_Aires');

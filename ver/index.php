@@ -2,16 +2,23 @@
 // Portal de acceso público — sin login
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/helpers.php';
 
 $error = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+$rlClave = 'pub_codigo|' . ($_SERVER['REMOTE_ADDR'] ?? '');
+$rlEspera = rateLimitBloqueado($rlClave);
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rlEspera === 0) {
     $codigo = strtoupper(trim($_POST['codigo'] ?? ''));
     $codigo = preg_replace('/[^A-Z0-9]/', '', $codigo);
     if (strlen($codigo) >= 6) {
         redir(BASE_URL . '/ver/' . $codigo);
     }
+    rateLimitRegistrarFallo($rlClave);
     $error = 'Ingresá un código válido.';
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $rlEspera > 0) {
+    $error = 'Demasiados intentos. Probá de nuevo en ' . $rlEspera . ' minuto' . ($rlEspera === 1 ? '' : 's') . '.';
 }
 ?>
 <!DOCTYPE html>

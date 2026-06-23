@@ -14,7 +14,7 @@ if (!$est) die('Estudio no encontrado.');
 
 $informe = db()->prepare('SELECT i.cuerpo, i.firmado_en, i.hash_contenido,
                                   u.nombre AS medico_nombre, u.firma_img AS medico_firma
-                           FROM informes i LEFT JOIN usuarios u ON u.id=i.usuario_id
+                           FROM informes i LEFT JOIN usuarios u ON u.id=i.firmado_por
                            WHERE i.estudio_id=?');
 $informe->execute([$id]);
 $inf = $informe->fetch();
@@ -176,7 +176,7 @@ body { font-family: 'Inter', Arial, sans-serif; font-size: 10pt; color: #111; ba
   <!-- Firma -->
   <div class="firma-area">
     <div class="firma-box">
-      <?php if ($inf && !empty($inf['medico_firma'])): ?>
+      <?php if ($inf && $inf['firmado_en'] && !empty($inf['medico_firma'])): ?>
       <div class="firma-img-wrap">
         <img src="<?= e($inf['medico_firma']) ?>" alt="Firma">
       </div>
@@ -184,7 +184,7 @@ body { font-family: 'Inter', Arial, sans-serif; font-size: 10pt; color: #111; ba
       <div style="height:70px;"></div>
       <?php endif; ?>
       <div class="firma-linea">
-        <?php if ($inf && $inf['medico_nombre']): ?>
+        <?php if ($inf && $inf['firmado_en'] && $inf['medico_nombre']): ?>
           <div class="firma-nombre"><?= e($inf['medico_nombre']) ?></div>
         <?php endif; ?>
         <div class="firma-sub">Médico informante</div>

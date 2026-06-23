@@ -3,6 +3,11 @@ $pageTitle  = 'Historial del paciente';
 $activePage = 'pacientes';
 require_once __DIR__ . '/_layout.php';
 
+if (!puedeHacer('ver_estudios')) {
+    echo '<div class="alert alert-warning">No tenés permiso para ver historiales de pacientes.</div>';
+    require_once __DIR__.'/_layout_end.php'; exit;
+}
+
 $pacId = (int)($_GET['pac_id'] ?? 0);
 if (!$pacId) { echo '<div class="alert alert-danger">Paciente no especificado.</div>'; require_once __DIR__.'/_layout_end.php'; exit; }
 
